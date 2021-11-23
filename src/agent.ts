@@ -1,45 +1,57 @@
-import BigNumber from 'bignumber.js'
+import BigNumber from "bignumber.js";
+import { EVENTS } from "./constants";
 import {
-    CALL_EXECUTED_EVENT,
-    CALL_SCHEDULED_EVENT,
-    MIN_DELAY_CHANGED_EVENT, 
-}from "./constants" 
-import { 
-  BlockEvent, 
-  Finding, 
-  HandleBlock, 
-  HandleTransaction, 
-  TransactionEvent, 
-  FindingSeverity, 
-  FindingType 
-} from 'forta-agent'
+  Finding,
+  HandleTransaction,
+  TransactionEvent,
+  FindingSeverity,
+  FindingType,
+} from "forta-agent";
 
+const handleTransaction: HandleTransaction = async (
+  txEvent: TransactionEvent
+) => {
+  const findings: Finding[] = [];
+  const events = txEvent.filterLog([
+    EVENTS.executedEvent.signature,
+    EVENTS.scheduledEvent.signature,
+    EVENTS.minDelayEvent.signature,
+  ]);
 
-const handleTransaction: HandleTransaction = async (txEvent: TransactionEvent) => {
-  const findings: Finding[] = []
+  let delayChangedToZero = false;
+  const idExecuted = new Set();
+  events.some((event) => {
+    if (event.name === EVENTS.minDelayEvent.name) {
+      const newDuration = new BigNumber(event.args.newDuration.toString());
+      if (newDuration.eq("0")) {
+        delayChangedToZero = true;
+      }
+    } else if (event.name === EVENTS.executedEvent.name && delayChangedToZero) {
+      // All executions after delay sets to Zero are suspcius
+      idExecuted.add(event.args.id);
+    } else if (
+      event.name === EVENTS.scheduledEvent.name &&
+      idExecuted.has(event.args.id)
+    ) {
+      // If there is a match then this contract has suffered a re-entreancy
+      // attack, and the attacker may well become the owner of the contract
+      findings.push(
+        Finding.fromObject({
+          name: "Re entreancy Attack",
+          description:
+            "An executor has made a re entrancy attack and changed minimum delay to 0",
+          alertId: "TIMELOCK-REENTRANCY-ALERT",
+          severity: FindingSeverity.Critical,
+          type: FindingType.Exploit,
+        })
+      );
+      return true;
+    }
+  });
 
-  // create finding if gas used is higher than threshold
-  const gasUsed = new BigNumber(txEvent.gasUsed)
-  if (gasUsed.isGreaterThan("1000000")) {
-    findings.push(Finding.fromObject({
-      name: "High Gas Used",
-      description: `Gas Used: ${gasUsed}`,
-      alertId: "FORTA-1",
-      severity: FindingSeverity.Medium,
-      type: FindingType.Suspicious
-    }))
-  }
-
-  return findings
-}
-
-// const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
-//   const findings: Finding[] = [];
-//   // detect some block condition
-//   return findings;
-// }
+  return findings;
+};
 
 export default {
   handleTransaction,
-  // handleBlock
-}
+};
