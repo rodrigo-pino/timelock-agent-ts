@@ -72,10 +72,10 @@ describe("Privilege Escalation", () => {
 
     expect(findings).toStrictEqual([
       Finding.fromObject({
-        name: "Re entreancy Attack",
+        name: "Execution before Scheduling",
         description:
-          "An executor has made a re entrancy attack and changed minimum delay to 0",
-        alertId: "TIMELOCK-REENTRANCY-ALERT",
+          "Minimum delay set to 0 and call's executed before sceduling",
+        alertId: "TIMELOCK-PRIV-ESCALATION-1",
         severity: FindingSeverity.Critical,
         type: FindingType.Exploit,
       }),
