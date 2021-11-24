@@ -5,32 +5,50 @@ import {
   Finding,
   HandleTransaction,
 } from "forta-agent";
-import { createEventWithLogs } from "./utils";
-import { EVENTS } from "./constants";
+import { createEventWithLogs } from "./test.utils";
 import agent from "./agent";
+import {
+  MIN_DELAY_CHANGED_EVENT_SIG,
+  CALL_EXECUTED_EVENT_SIG,
+  CALL_SCHEDULED_EVENT_SIG,
+} from "./constants";
 
-describe("nasty executor", () => {
+describe("Privilege Escalation", () => {
   let handleTransaction: HandleTransaction;
 
   beforeAll(() => {
     handleTransaction = agent.handleTransaction;
   });
 
-  const scheduledEvent = EVENTS.scheduledEvent;
-  const executedEvent = EVENTS.executedEvent;
-  const delayEvent = EVENTS.minDelayEvent;
+  it("Scheduling and Execution", async () => {
+    const executedArgs1: Array<any> & { [key: string]: any } = [];
+    executedArgs1["id"] = "0xabcde";
 
-  it("no events", async () => {
-    const txEvent = createEventWithLogs([], []);
-    txEvent.filterLog = () => [];
-    console.log(txEvent);
+    const executedArgs2: Array<any> & { [key: string]: any } = [];
+    executedArgs2["id"] = "0x1234";
+
+    const scheduledArgs: Array<any> & { [key: string]: any } = [];
+    scheduledArgs["id"] = "0x5467";
+
+    const executedArgs3: Array<any> & { [key: string]: any } = [];
+    executedArgs2["id"] = "0x5467";
+
+    const txEvent = createEventWithLogs(
+      [
+        CALL_EXECUTED_EVENT_SIG,
+        CALL_EXECUTED_EVENT_SIG,
+        CALL_SCHEDULED_EVENT_SIG,
+        CALL_EXECUTED_EVENT_SIG,
+      ],
+      [executedArgs1, executedArgs2, scheduledArgs, executedArgs3]
+    );
 
     const findings = await handleTransaction(txEvent);
 
     expect(findings).toStrictEqual([]);
   });
 
-  it("reentrancy attack", async () => {
+  it("Execution before scheduling", async () => {
     const delayChangedArgs: Array<any> & { [key: string]: any } = [];
     delayChangedArgs["newDuration"] = 0;
 
@@ -42,7 +60,11 @@ describe("nasty executor", () => {
     scheduledArgs["id"] = id;
 
     const txEvent = createEventWithLogs(
-      [delayEvent, executedEvent, scheduledEvent],
+      [
+        MIN_DELAY_CHANGED_EVENT_SIG,
+        CALL_EXECUTED_EVENT_SIG,
+        CALL_SCHEDULED_EVENT_SIG,
+      ],
       [delayChangedArgs, executedArgs, scheduledArgs]
     );
 
