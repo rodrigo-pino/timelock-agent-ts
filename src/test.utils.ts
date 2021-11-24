@@ -8,12 +8,12 @@ const createTxEvent = () =>
   });
 
 const createLogEvent = (
-  event: { name: string; signature: string },
+  signature: string,
   result: Array<any> & { [key: string]: any }
 ): LogDescription => ({
   eventFragment: {} as any,
-  name: event.name,
-  signature: event.signature,
+  name: {} as any,
+  signature: signature,
   topic: {} as any,
   args: result,
   address: "",
@@ -22,14 +22,11 @@ const createLogEvent = (
 const zip = (lists: any[][]) =>
   lists[0].map((_, c) => lists.map((row) => row[c]));
 
-export const createEventWithLogs = (
-  names: { name: string; signature: string }[],
-  logs: Array<any>
-) => {
+export const createEventWithLogs = (signatures: string[], logs: any[]) => {
   const txEvent = createTxEvent();
 
   const eventDescription: LogDescription[] = [];
-  zip([names, logs]).forEach((result) =>
+  zip([signatures, logs]).forEach((result) =>
     eventDescription.push(createLogEvent(result[0], result[1]))
   );
   txEvent.filterLog = () => eventDescription;
