@@ -1,3 +1,5 @@
 node_modules
 dist
 forta.config.json
+src/agent.spec.ts
+src/test.utils.ts
